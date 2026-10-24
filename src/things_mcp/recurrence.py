@@ -364,12 +364,15 @@ def _connect(db_path):
     return connection
 
 
-def fetch_templates(db_path=None):
+def fetch_templates(db_path=None, include_paused=False):
     """Read active repeating templates and their materialized instance dates.
 
     Returns a list of dicts. Canceled, completed and trashed templates are
     excluded, as are templates whose parent project is canceled/trashed, so
-    they never leak occurrences.
+    they never leak occurrences. Paused templates are excluded too unless
+    ``include_paused`` is set; every dict carries a ``paused`` flag so a
+    caller that asks for them can tell them apart. Projection callers should
+    leave ``include_paused`` off.
     """
     db_path = db_path or database_path()
     try:
@@ -379,6 +382,10 @@ def fetch_templates(db_path=None):
         return []
 
     templates = []
+    paused_clause = "" if include_paused else (
+        "  AND (TASK.rt1_instanceCreationPaused IS NULL\n"
+        "       OR TASK.rt1_instanceCreationPaused = 0)\n"
+    )
     try:
         with connection:
             rows = connection.execute(
@@ -392,8 +399,7 @@ def fetch_templates(db_path=None):
                 WHERE TASK.rt1_recurrenceRule IS NOT NULL
                   AND TASK.status = 0
                   AND TASK.trashed = 0
-                  AND (TASK.rt1_instanceCreationPaused IS NULL
-                       OR TASK.rt1_instanceCreationPaused = 0)
+                """ + paused_clause + """
                   AND (PROJECT.uuid IS NULL
                        OR (PROJECT.status = 0 AND PROJECT.trashed = 0))
                 """
@@ -429,6 +435,7 @@ def fetch_templates(db_path=None):
                             row["rt1_nextInstanceStartDate"]
                         ),
                         "existing_dates": existing,
+                        "paused": bool(row["rt1_instanceCreationPaused"]),
                     }
                 )
     except sqlite3.Error:
@@ -438,6 +445,57 @@ def fetch_templates(db_path=None):
         connection.close()
 
     return templates
+
+
+# A rule end date past this year is Things' "never ends" sentinel.
+_NEVER_ENDS_AFTER_YEAR = 3000
+
+
+def describe_template(template, today=None):
+    """Summarize one repeating template as a JSON-safe dict (things-mcp #57).
+
+    This describes the template itself rather than an occurrence of it, for a
+    listing of repeating to-dos. ``next_date`` is the next instance date Things
+    has precomputed. A fixed schedule without one falls back to the first date
+    the rule projects from today; an after-completion rule without one stays
+    None, because its next date depends on when the open instance is
+    completed. ``materialized_dates`` lists the instances Things has already
+    created for today or later, so a caller can tell a real row from a
+    projection.
+    """
+    today = today or date.today()
+    rule = template.get("rule") or {}
+    after_completion = rule.get("type") == TYPE_AFTER_COMPLETION
+    next_date = template.get("next_instance")
+    if next_date is None and rule and not after_completion:
+        projected = occurrences(rule, today, today + timedelta(days=366))
+        next_date = projected[0] if projected else None
+    end_date = rule.get("end_date")
+    if end_date is not None and end_date.year > _NEVER_ENDS_AFTER_YEAR:
+        end_date = None
+    materialized = sorted(
+        d.isoformat() for d in (template.get("existing_dates") or ()) if d >= today
+    )
+    return {
+        "uuid": template["uuid"],
+        "title": template.get("title"),
+        "type": "repeating-template",
+        "notes": template.get("notes"),
+        "project": template.get("project"),
+        "area": template.get("area"),
+        "heading": template.get("heading"),
+        "next_date": next_date.isoformat() if next_date else None,
+        "paused": bool(template.get("paused")),
+        "repeat": {
+            "type": "after_completion" if after_completion else "fixed_schedule",
+            "unit": UNIT_NAMES.get(rule.get("unit")),
+            "interval": rule.get("interval") or 1,
+            "lead_days": rule.get("lead_days") or 0,
+            "end_date": end_date.isoformat() if end_date else None,
+            "count_limit": rule.get("count_limit") or 0,
+        },
+        "materialized_dates": materialized,
+    }
 
 
 def _synthesize(template, occurrence_date):

@@ -2,10 +2,15 @@
 
 ## Unreleased
 
+### Features
+
+- **List Repeating To-dos**: New `get_repeating_templates` tool lists the repeating to-dos themselves, which `things.py` hides from every query: one entry per repeat with its rule (fixed schedule or after completion, unit, interval, lead time, end date), the next date Things will create an instance, whether it is paused, the instances already created for today onward, and where it is filed. `days` narrows the list to repeats coming up soon, `include_paused` adds paused ones, and `limit` / `offset` paginate. Read-only; repeat rules still cannot be created or edited through the server. ([#57][i57])
+
 ### Bug fixes
 
 - **Repeating To-dos Are Visible Again**: `get_today`, `get_upcoming` and `search_todos` now surface repeating to-dos. Things 3 stores a repeating to-do as one template row carrying a repeat rule and materializes at most a single instance ahead of today; on top of that, `things.py` hard-codes `rt1_recurrenceRule IS NULL` into every task query, so template rows are invisible to its entire API. Repeating to-dos therefore never appeared in Upcoming and could not be found by search. These tools now decode the repeat rule directly and project each series' next occurrences (default 8, `THINGS_MCP_RECURRING_OCCURRENCES`) across the requested window (default 365 days, `THINGS_MCP_RECURRING_HORIZON_DAYS`). Projected items carry `is_recurring: true` and a `template_id`, and use a synthetic `<template-uuid>:<date>` UUID so they are never mistaken for real rows. Dates Things has already materialized are skipped, and canceled, completed, trashed and paused templates — plus templates inside a canceled or trashed project — produce nothing. To-dos set to repeat *after completion* have no derivable schedule, so only the single next date Things itself computed is shown rather than an invented series. Opt out per call with `include_recurring=false`. ([#67][i67])
 
+[i57]: https://github.com/hald/things-mcp/issues/57
 [i67]: https://github.com/hald/things-mcp/issues/67
 
 ## v0.8.2 - 2026-10-23

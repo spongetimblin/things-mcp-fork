@@ -34,6 +34,10 @@
       "description": "Get upcoming todos"
     },
     {
+      "name": "get_repeating_templates",
+      "description": "List repeating to-dos with their repeat rule and next date"
+    },
+    {
       "name": "get_anytime",
       "description": "Get todos from Anytime list"
     },

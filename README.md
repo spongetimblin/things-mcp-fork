@@ -134,6 +134,7 @@ After installation:
 - `get-inbox` - Get todos from Inbox
 - `get-today` - Get todos due today (includes repeating to-dos scheduled for today)
 - `get-upcoming` - Get upcoming todos (includes projected occurrences of repeating to-dos)
+- `get-repeating-templates` - List repeating to-dos themselves (the templates), with each one's repeat rule and next date
 - `get-anytime` - Get todos from Anytime list
 - `get-someday` - Get todos from Someday list, including tasks in Someday projects
 - `get-logbook` - Get completed todos
@@ -170,7 +171,7 @@ After installation:
 ## Tool Parameters
 
 ### Pagination (most read tools)
-The list/search read tools (`get-inbox`, `get-today`, `get-upcoming`, `get-anytime`, `get-someday`, `get-logbook`, `get-trash`, `get-todos`, `get-projects`, `get-areas`, `get-tags`, `get-tagged-items`, `get-headings`, `search-todos`, `search-advanced`, `get-recent`) accept optional pagination:
+The list/search read tools (`get-inbox`, `get-today`, `get-upcoming`, `get-anytime`, `get-someday`, `get-logbook`, `get-trash`, `get-todos`, `get-projects`, `get-areas`, `get-tags`, `get-tagged-items`, `get-headings`, `get-repeating-templates`, `search-todos`, `search-advanced`, `get-recent`) accept optional pagination:
 - `limit` - Maximum number of items to return (default: all; `get-logbook` defaults to 50)
 - `offset` - Number of items to skip from the start (default: 0)
 
@@ -195,6 +196,14 @@ Parameters and configuration:
 - `THINGS_MCP_RECURRING_HORIZON_DAYS` (env, default `365`) - how far ahead `get-upcoming` / `search-todos` project
 
 > This is a read-only visibility feature. Creating or editing repeat rules is not supported.
+
+### get-repeating-templates
+Lists the repeating to-dos themselves, one entry per repeat, rather than their projected occurrences. Each entry carries the repeat rule (`repeat.type` of `fixed_schedule` or `after_completion`, `repeat.unit`, `repeat.interval`, lead time, end date), `next_date` (the next instance Things will create, or the first projected date for a fixed schedule Things has not precomputed), `paused`, `materialized_dates` (instances Things has already created for today or later), and where the to-do is filed. Use it to check whether a repeat exists or when it next comes up.
+- `days` (optional) - only repeats whose next date falls within this many days of today (default: all)
+- `include_paused` (optional, default `false`) - also list paused repeats
+- `limit` / `offset` - pagination, as above
+
+A to-do set to repeat after completion has no next date until its open instance is completed, so it is left out of a `days` window.
 
 ### get-todos
 - `project_uuid` (optional) - Filter todos by project

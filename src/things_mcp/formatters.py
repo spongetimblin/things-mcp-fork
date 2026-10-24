@@ -262,3 +262,62 @@ def format_heading(heading: dict, include_items: bool = False) -> str:
                 heading_text += f"\n- {todo['title']}"
 
     return heading_text
+
+
+def format_repeating_template(item: dict) -> str:
+    """Format one repeating to-do template (see recurrence.describe_template)."""
+    text = f"Title: {item['title']}"
+    text += f"\nUUID: {item['uuid']}"
+    text += "\nType: repeating-template"
+
+    repeat = item.get('repeat') or {}
+    interval = repeat.get('interval') or 1
+    unit = repeat.get('unit') or 'period'
+    every = f"every {unit}" if interval == 1 else f"every {interval} {unit}s"
+    after_completion = repeat.get('type') == 'after_completion'
+    if after_completion:
+        every += " after completion"
+    lead = abs(repeat.get('lead_days') or 0)
+    if lead:
+        every += f", shown {lead} day{'s' if lead != 1 else ''} early"
+    text += f"\nRepeats: {every}"
+    if repeat.get('end_date'):
+        text += f"\nEnds: {repeat['end_date']}"
+    if repeat.get('count_limit'):
+        text += f"\nOccurrence Limit: {repeat['count_limit']}"
+    if item.get('paused'):
+        text += "\nPaused: yes"
+
+    if item.get('next_date'):
+        text += f"\nNext Date: {item['next_date']}"
+    elif after_completion:
+        text += "\nNext Date: after the open instance is completed"
+    else:
+        text += "\nNext Date: none"
+
+    if item.get('materialized_dates'):
+        text += f"\nAlready Created: {', '.join(item['materialized_dates'])}"
+
+    if item.get('notes'):
+        text += f"\nNotes: {item['notes']}"
+
+    # Like format_todo: a heading-level template without a project field
+    # belongs to its heading's project.
+    project_uuid = item.get('project')
+    if not project_uuid and item.get('heading'):
+        try:
+            heading_obj = things.get(item['heading'])
+            project_uuid = heading_obj.get('project') if heading_obj else None
+        except Exception:
+            project_uuid = None
+    project_title = _lookup_title(project_uuid)
+    if project_title:
+        text += f"\nProject: {project_title}"
+    heading_title = _lookup_title(item.get('heading'))
+    if heading_title:
+        text += f"\nHeading: {heading_title}"
+    area_title = _lookup_title(item.get('area'))
+    if area_title:
+        text += f"\nArea: {area_title}"
+
+    return text

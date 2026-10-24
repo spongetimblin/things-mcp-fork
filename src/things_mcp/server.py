@@ -7,7 +7,8 @@ from datetime import datetime, timedelta
 import things
 from fastmcp import FastMCP
 from fastmcp.tools.tool import ToolResult
-from .formatters import format_todo, format_project, format_area, format_tag, format_heading
+from .formatters import (format_todo, format_project, format_area, format_tag,
+                         format_heading, format_repeating_template)
 from . import url_scheme
 from . import recurrence
 
@@ -291,6 +292,46 @@ async def get_upcoming(limit: int = None, offset: int = 0, include_recurring: bo
         todos, tomorrow, tomorrow + timedelta(days=RECURRING_HORIZON_DAYS), include_recurring
     )
     return _paginate_result(todos, format_todo, limit, offset, "No items found")
+
+@mcp.tool
+async def get_repeating_templates(days: int = None, include_paused: bool = False,
+                                  limit: int = None, offset: int = 0) -> ToolResult:
+    """List repeating to-dos: the templates Things creates each instance from
+
+    things.py hides these template rows from every query, so they are read from
+    the Things database directly, read-only (things-mcp #57). Each entry gives
+    the repeat rule, the next date Things will create an instance, and where the
+    to-do is filed. Use this to check whether a repeat exists or when it next
+    comes up; get_today, get_upcoming and search_todos show the projected
+    occurrences themselves. Repeat rules cannot be created or edited here.
+
+    Args:
+        days: Only repeats whose next date falls within this many days of today
+            (default: all). A repeat that runs after completion has no next
+            date until its open instance is completed, so it is left out.
+        include_paused: Also list repeats whose repeating is paused (default: False)
+        limit: Maximum number of items to return (default: all)
+        offset: Number of items to skip from the start (default: 0)
+    """
+    err = _validate_pagination(limit, offset)
+    if err:
+        return _error_result(err)
+    if days is not None and days < 0:
+        return _error_result("Error: days must be zero or a positive integer")
+    try:
+        templates = recurrence.fetch_templates(include_paused=include_paused)
+    except Exception:
+        logger.debug("Could not read repeating templates", exc_info=True)
+        return _error_result(
+            "Error: could not read repeating to-dos from the Things database")
+    today = datetime.now().date()
+    items = [recurrence.describe_template(t, today) for t in templates]
+    if days is not None:
+        horizon = (today + timedelta(days=days)).isoformat()
+        items = [i for i in items if i["next_date"] and i["next_date"] <= horizon]
+    items.sort(key=lambda i: (i["next_date"] or "9999-99-99", i["title"] or ""))
+    return _paginate_result(items, format_repeating_template, limit, offset,
+                            "No repeating to-dos found")
 
 @mcp.tool
 async def get_anytime(limit: int = None, offset: int = 0) -> ToolResult:
