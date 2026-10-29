@@ -306,13 +306,16 @@ things-mcp/
 │   ├── __main__.py      # Entry point for python -m
 │   ├── server.py        # MCP server implementation
 │   ├── url_scheme.py    # Things URL scheme implementation
-│   └── formatters.py    # Data formatting utilities
+│   ├── formatters.py    # Data formatting utilities
+│   └── recurrence.py    # Repeating to-do projection
 ├── tests/               # Unit tests
 │   ├── conftest.py      # Test fixtures and configuration
 │   ├── test_url_scheme.py
 │   ├── test_formatters.py
 │   ├── test_someday_filtering.py
-│   └── test_mcp_server_filtering.py
+│   ├── test_mcp_server_filtering.py
+│   ├── test_recurring_visibility.py
+│   └── test_repeating_templates.py
 ├── docs/                # Documentation
 │   └── mcp_integration_test_plan.md  # Claude-executable integration test
 ├── manifest.json        # MCPB package manifest
