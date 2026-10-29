@@ -49,14 +49,14 @@ Test coverage includes:
 This is a Model Context Protocol (MCP) server that bridges Claude Desktop with the Things 3 task management app on macOS. The architecture consists of:
 
 1. **src/things_mcp/server.py** - Main MCP server implementation using FastMCP (3.x)
-   - Defines all MCP tools for interacting with Things (26 tools)
+   - Defines all MCP tools for interacting with Things (27 tools)
    - List views (inbox, today, upcoming, etc.)
    - CRUD operations for todos/projects/areas (Areas have create/read/update — no delete by design; see below)
    - Search and tag operations
    - Things URL scheme integration
    - Implements Someday project filtering to match Things UI behavior
    - **Repeating-to-do visibility**: `get_today`, `get_upcoming` and `search_todos` merge in projected occurrences of repeating to-dos via `_merge_recurring` (see `recurrence.py`). Each accepts `include_recurring` (default True); `RECURRING_OCCURRENCES` / `RECURRING_HORIZON_DAYS` are env-configurable.
-   - **Pagination + structured responses**: the 16 list/search read tools accept optional `limit`/`offset` and return a FastMCP `ToolResult` carrying both a human-readable text channel and a `structured_content` envelope `{items, count, total, offset, limit}`. Two helpers drive this: `_paginate_format` (text) and `_paginate_result` (wraps text + JSON-safe structured data); `_error_result` wraps early-return/validation errors. `get_tag_usage` intentionally stays a plain string.
+   - **Pagination + structured responses**: the 17 list/search read tools accept optional `limit`/`offset` and return a FastMCP `ToolResult` carrying both a human-readable text channel and a `structured_content` envelope `{items, count, total, offset, limit}`. Two helpers drive this: `_paginate_format` (text) and `_paginate_result` (wraps text + JSON-safe structured data); `_error_result` wraps early-return/validation errors. `get_tag_usage` intentionally stays a plain string.
 
 2. **src/things_mcp/url_scheme.py** - Things URL scheme + AppleScript implementation
    - Constructs Things URLs for various operations
