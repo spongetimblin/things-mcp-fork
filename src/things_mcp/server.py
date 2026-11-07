@@ -320,10 +320,11 @@ async def get_repeating_templates(days: int = None, include_paused: bool = False
         return _error_result("Error: days must be zero or a positive integer")
     try:
         templates = recurrence.fetch_templates(include_paused=include_paused)
-    except Exception:
+    except Exception as exc:
         logger.debug("Could not read repeating templates", exc_info=True)
         return _error_result(
-            "Error: could not read repeating to-dos from the Things database")
+            "Error: could not read repeating to-dos from the Things database "
+            f"({type(exc).__name__}: {exc})")
     today = datetime.now().date()
     items = [recurrence.describe_template(t, today) for t in templates]
     if days is not None:

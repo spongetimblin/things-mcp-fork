@@ -179,3 +179,46 @@ class TestGetRepeatingTemplatesTool:
                      side_effect=RuntimeError("boom"))
         result = await get_repeating_templates()
         assert "error" in result.structured_content
+        # The cause is named, so a failure can be diagnosed from the tool output.
+        assert "RuntimeError: boom" in result.structured_content["error"]
+
+
+class TestDatabasePath:
+    """The template reader finds the same database file things.py uses.
+
+    things.py 1.1.0 removed ``things.database.DEFAULT_FILEPATH``; importing it
+    made every get_repeating_templates call fail and silently dropped projected
+    occurrences from get_today, get_upcoming and search_todos.
+    """
+
+    @pytest.fixture
+    def thingsdb_unset(self, monkeypatch):
+        monkeypatch.delenv("THINGSDB", raising=False)
+
+    def test_thingsdb_env_var_wins(self, monkeypatch):
+        monkeypatch.setenv("THINGSDB", "/env/main.sqlite")
+        assert recurrence.database_path() == "/env/main.sqlite"
+
+    def test_uses_resolver_function_from_things_py_1_1(self, monkeypatch, thingsdb_unset):
+        import things.database
+
+        calls = []
+
+        def resolve(raise_on_error=False):
+            calls.append(raise_on_error)
+            return "/resolved/main.sqlite"
+
+        monkeypatch.delattr(things.database, "DEFAULT_FILEPATH", raising=False)
+        monkeypatch.setattr(things.database, "get_default_database_filepath",
+                            resolve, raising=False)
+        assert recurrence.database_path() == "/resolved/main.sqlite"
+        assert calls == [True]
+
+    def test_falls_back_to_constant_on_older_things_py(self, monkeypatch, thingsdb_unset):
+        import things.database
+
+        monkeypatch.delattr(things.database, "get_default_database_filepath",
+                            raising=False)
+        monkeypatch.setattr(things.database, "DEFAULT_FILEPATH",
+                            "/constant/main.sqlite", raising=False)
+        assert recurrence.database_path() == "/constant/main.sqlite"

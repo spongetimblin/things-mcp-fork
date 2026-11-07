@@ -118,13 +118,23 @@ def _unixtime_to_date(value):
 
 
 def database_path():
-    """Resolve the same Things SQLite path things.py uses."""
+    """Resolve the same Things SQLite path things.py uses.
+
+    things.py 1.1.0 replaced the import-time ``DEFAULT_FILEPATH`` constant with
+    ``get_default_database_filepath()``, so use whichever the installed version
+    provides. ``raise_on_error`` matches what ``things.database.Database`` does:
+    if macOS will not list the Things container, say so instead of silently
+    falling back to a path that does not exist.
+    """
     env_path = os.getenv("THINGSDB")
     if env_path:
         return env_path
-    from things.database import DEFAULT_FILEPATH
+    from things import database
 
-    return DEFAULT_FILEPATH
+    resolve = getattr(database, "get_default_database_filepath", None)
+    if resolve is not None:
+        return resolve(raise_on_error=True)
+    return database.DEFAULT_FILEPATH
 
 
 def parse_recurrence_rule(blob):
