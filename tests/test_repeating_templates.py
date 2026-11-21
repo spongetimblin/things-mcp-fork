@@ -139,7 +139,7 @@ class TestGetRepeatingTemplatesTool:
         items = result.structured_content["items"]
         assert [i["title"] for i in items] == ["Sooner", "Later", "Someday"]
         assert all(i["type"] == "repeating-template" for i in items)
-        fetch.assert_called_once_with(include_paused=False)
+        fetch.assert_called_once_with(include_paused=False, strict=True)
 
     @pytest.mark.asyncio
     async def test_days_window_filters_on_next_date(self, mocker):
@@ -154,7 +154,7 @@ class TestGetRepeatingTemplatesTool:
         from things_mcp.server import get_repeating_templates
         fetch = mocker.patch("things_mcp.recurrence.fetch_templates", return_value=[])
         result = await get_repeating_templates(include_paused=True)
-        fetch.assert_called_once_with(include_paused=True)
+        fetch.assert_called_once_with(include_paused=True, strict=True)
         assert result.structured_content["items"] == []
 
     @pytest.mark.asyncio
@@ -222,3 +222,32 @@ class TestDatabasePath:
         monkeypatch.setattr(things.database, "DEFAULT_FILEPATH",
                             "/constant/main.sqlite", raising=False)
         assert recurrence.database_path() == "/constant/main.sqlite"
+
+
+class TestStrictRead:
+    """The listing reports an unreadable database instead of "none found"."""
+
+    def test_missing_database_raises_when_strict(self, tmp_path):
+        import sqlite3
+        with pytest.raises(sqlite3.Error):
+            recurrence.fetch_templates(str(tmp_path / "nope.sqlite"), strict=True)
+
+    def test_unreadable_schema_raises_when_strict(self, tmp_path):
+        import sqlite3
+        path = tmp_path / "main.sqlite"
+        connection = sqlite3.connect(path)
+        connection.execute("CREATE TABLE TMTask (uuid TEXT PRIMARY KEY, title TEXT)")
+        connection.commit()
+        connection.close()
+        assert recurrence.fetch_templates(str(path)) == []
+        with pytest.raises(sqlite3.Error):
+            recurrence.fetch_templates(str(path), strict=True)
+
+    @pytest.mark.asyncio
+    async def test_tool_names_the_database_error(self, tmp_path, monkeypatch):
+        from things_mcp.server import get_repeating_templates
+        monkeypatch.setenv("THINGSDB", str(tmp_path / "nope.sqlite"))
+        result = await get_repeating_templates()
+        assert "error" in result.structured_content
+        assert "OperationalError" in result.structured_content["error"]
+

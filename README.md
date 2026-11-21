@@ -315,7 +315,8 @@ things-mcp/
 │   ├── test_someday_filtering.py
 │   ├── test_mcp_server_filtering.py
 │   ├── test_recurring_visibility.py
-│   └── test_repeating_templates.py
+│   ├── test_repeating_templates.py
+│   └── test_phantom_occurrences.py
 ├── docs/                # Documentation
 │   └── mcp_integration_test_plan.md  # Claude-executable integration test
 ├── manifest.json        # MCPB package manifest

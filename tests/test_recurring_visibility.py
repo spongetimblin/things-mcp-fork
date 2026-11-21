@@ -518,6 +518,32 @@ class TestServerIntegration:
         assert all(i["is_recurring"] for i in items)
 
     @pytest.mark.asyncio
+    async def test_get_upcoming_leaves_out_template_rows_from_things_py(self, mocker):
+        """things.py 1.1.0 lists repeating templates in upcoming(); only the
+        projected occurrences should reach the caller."""
+        from things_mcp.server import get_upcoming
+
+        template_row = {"uuid": "tpl-1", "title": "Water the plants",
+                        "type": "to-do", "status": "incomplete", "start": "Someday",
+                        "start_date": None,
+                        "next_instance_start_date": (date.today() + timedelta(days=1)).isoformat()}
+        scheduled = {"uuid": "todo-1", "title": "Dentist", "type": "to-do",
+                     "status": "incomplete", "start": "Someday",
+                     "start_date": (date.today() + timedelta(days=2)).isoformat()}
+        mocker.patch("things.upcoming", return_value=[scheduled, template_row])
+        mocker.patch("things_mcp.server.filter_someday_project_tasks",
+                     side_effect=lambda todos: todos)
+        mocker.patch("things_mcp.recurrence.fetch_templates",
+                     return_value=[self._template(title="Water the plants")])
+        mocker.patch("things_mcp.server.RECURRING_OCCURRENCES", 2)
+
+        result = await get_upcoming()
+        uuids = [i["uuid"] for i in result.structured_content["items"]]
+        assert "tpl-1" not in uuids
+        assert "todo-1" in uuids
+        assert sum(1 for u in uuids if u.startswith("tpl-1:")) == 2
+
+    @pytest.mark.asyncio
     async def test_search_todos_matches_template_title(self, mocker):
         from things_mcp.server import search_todos
 

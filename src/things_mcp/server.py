@@ -285,8 +285,12 @@ async def get_upcoming(limit: int = None, offset: int = 0, include_recurring: bo
     if err:
         return _error_result(err)
     todos = things.upcoming(include_items=True)
+    # things.py 1.1.0 adds the repeating templates themselves to upcoming(),
+    # marked by next_instance_start_date. Their occurrences are projected
+    # below, so drop the template rows: they read as undated Someday to-dos.
+    todos = [t for t in (todos or []) if not t.get("next_instance_start_date")]
     # Filter out tasks from Someday projects, then paginate
-    todos = filter_someday_project_tasks(todos or [])
+    todos = filter_someday_project_tasks(todos)
     tomorrow = datetime.now().date() + timedelta(days=1)
     todos = _merge_recurring(
         todos, tomorrow, tomorrow + timedelta(days=RECURRING_HORIZON_DAYS), include_recurring
@@ -319,7 +323,7 @@ async def get_repeating_templates(days: int = None, include_paused: bool = False
     if days is not None and days < 0:
         return _error_result("Error: days must be zero or a positive integer")
     try:
-        templates = recurrence.fetch_templates(include_paused=include_paused)
+        templates = recurrence.fetch_templates(include_paused=include_paused, strict=True)
     except Exception as exc:
         logger.debug("Could not read repeating templates", exc_info=True)
         return _error_result(

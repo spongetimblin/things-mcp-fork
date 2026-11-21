@@ -96,7 +96,7 @@ _DAY_MASK = 3968
 
 def _thingsdate_to_date(value):
     """Decode Things' packed integer date format into a ``datetime.date``."""
-    if not value:
+    if not value or value < (2 << 16):  # 0 or the year-1 "no date" placeholder (69760)
         return None
     year = (value & _YEAR_MASK) >> 16
     month = (value & _MONTH_MASK) >> 12
@@ -374,7 +374,7 @@ def _connect(db_path):
     return connection
 
 
-def fetch_templates(db_path=None, include_paused=False):
+def fetch_templates(db_path=None, include_paused=False, strict=False):
     """Read active repeating templates and their materialized instance dates.
 
     Returns a list of dicts. Canceled, completed and trashed templates are
@@ -383,11 +383,17 @@ def fetch_templates(db_path=None, include_paused=False):
     ``include_paused`` is set; every dict carries a ``paused`` flag so a
     caller that asks for them can tell them apart. Projection callers should
     leave ``include_paused`` off.
+
+    A database that cannot be opened or read returns an empty list, so
+    projection never breaks a view. With ``strict`` set it raises instead, so
+    a listing can report the failure rather than "no repeating to-dos".
     """
     db_path = db_path or database_path()
     try:
         connection = _connect(db_path)
     except sqlite3.Error:
+        if strict:
+            raise
         logger.debug("Could not open Things database for recurrence", exc_info=True)
         return []
 
@@ -449,6 +455,8 @@ def fetch_templates(db_path=None, include_paused=False):
                     }
                 )
     except sqlite3.Error:
+        if strict:
+            raise
         logger.debug("Could not read repeating templates", exc_info=True)
         return []
     finally:
@@ -569,7 +577,14 @@ def recurring_occurrences(
                 else []
             )
         else:
-            dates = occurrences(rule, window_start, window_end, max_occurrences)
+            # Things has already created every occurrence before its next
+            # instance date. One of those missing from existing_dates was moved
+            # to another day or deleted, so it must not come back as a preview.
+            start = window_start
+            next_date = template.get("next_instance")
+            if next_date and next_date > start:
+                start = next_date
+            dates = occurrences(rule, start, window_end, max_occurrences)
 
         for occurrence_date in dates:
             if occurrence_date in existing:

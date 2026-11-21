@@ -76,7 +76,7 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
    - All failures are swallowed and the caller's original list returned, so projection can only ever add results
    - `describe_template` summarizes one template for the `get_repeating_templates` tool (#57), which lists the templates themselves rather than occurrences; `fetch_templates(include_paused=True)` adds paused templates, each dict carrying a `paused` flag
 
-5. **tests/** - Unit test suite (246 tests)
+5. **tests/** - Unit test suite (254 tests)
    - **conftest.py** - Pytest fixtures and mock data
    - **_helpers.py** - `tool_text()` reads the text channel from a `ToolResult` (or a plain-string result) so text assertions work across both return shapes
    - **test_url_scheme.py** - Tests for URL construction
@@ -86,6 +86,7 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
    - **test_someday_filtering.py** - Tests for Someday project filtering
    - **test_recurring_visibility.py** - Tests for repeating-to-do rule decoding, occurrence projection, status filtering and tool integration
    - **test_repeating_templates.py** - Tests for the `get_repeating_templates` listing: template summaries, paused handling, formatting, filtering and pagination
+   - **test_phantom_occurrences.py** - Tests that a repeat occurrence Things already created, then moved or deleted, is not projected again
    - **test_mcp_server_filtering.py** - Integration tests for MCP server filtering
 
 ## Key Implementation Details
